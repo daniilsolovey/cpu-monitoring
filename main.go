@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
+	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
@@ -14,6 +16,40 @@ import (
 const (
 	sleepTime = 1
 )
+
+func main() {
+	var cpuFrequency string
+	for {
+		frequency, err := getCPUFrequency()
+		if err != nil {
+			log.Fatal(err)
+		} else {
+			cpuFrequency = "i9 F: " + frequency + " Mhz"
+		}
+
+		cpuTemperature, err := getCpuTemperature()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		gpuTemperature, err := getGpuTemperature()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		gpuFrequency, err := getGpuFrequency()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		log.Info("--------------------------------------"+
+			"\n"+cpuTemperature+"    | "+cpuFrequency+"\n\n",
+			gpuTemperature+" | "+gpuFrequency,
+		)
+
+		time.Sleep(sleepTime * time.Second)
+	}
+}
 
 func getCPUFrequency() (string, error) {
 	contents, err := ioutil.ReadFile("/proc/cpuinfo")
@@ -55,7 +91,7 @@ func getCpuTemperature() (string, error) {
 	if err != nil {
 		return "", err
 	} else {
-		cpuTemp = "CPU TEMP: " + string(
+		cpuTemp = "i9 T: " + string(
 			strings.Split(
 				sensors.Chips["coretemp-isa-0000"]["Core 0"], " ",
 			)[0],
@@ -65,25 +101,21 @@ func getCpuTemperature() (string, error) {
 	return cpuTemp, nil
 }
 
-func main() {
-	var cpuFrequency string
-	for {
-		frequency, err := getCPUFrequency()
-		if err != nil {
-			cpuFrequency = "CPU FREQUENCY: error"
-			log.Error(cpuFrequency)
-			log.Fatal(err)
-		} else {
-			cpuFrequency = "CPU FREQUENCY: " + frequency + " Mhz"
-		}
-
-		cpuTemperature, err := getCpuTemperature()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		log.Info(cpuTemperature + " | " + cpuFrequency)
-
-		time.Sleep(sleepTime * time.Second)
+func getGpuTemperature() (string, error) {
+	cmd := exec.Command("nvidia-smi", "--query-gpu=temperature.gpu", "--format=csv,noheader")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
 	}
+
+	return fmt.Sprintf("RTX-2080 T: %s'C", strings.TrimSpace(string(output))), nil
+}
+
+func getGpuFrequency() (string, error) {
+	cmd := exec.Command("nvidia-smi", "--query-gpu=clocks.gr", "--format=csv,noheader")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace("RTX-2080 F: " + string(output)), nil
 }
